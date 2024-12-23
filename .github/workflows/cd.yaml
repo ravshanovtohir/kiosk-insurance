@@ -14,18 +14,31 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      # Step 2: Setup SSH and run necessary commands
-      - name: Setup with username/password and deploy
+      # Step 2: Setup SSH and deploy
+      - name: Deploy using SSH
         run: |
-          sshpass -p "${{ secrets.PASSWORD }}" ssh -o StrictHostKeyChecking=no ${{ secrets.USERNAME }}@${{ secrets.HOST }} << EOF
-            cd ~/kiosk_insurance/
-            git stash || { echo "git stash failed"; exit 1; }
-            git pull origin main || { echo "git pull failed"; exit 1; }
+          sshpass -p "${{ secrets.PASSWORD }}" ssh -o StrictHostKeyChecking=no ${{ secrets.USERNAME }}@${{ secrets.HOST }} << 'EOF'
+            # Loyihaning joylashgan katalogiga o'tish
+            cd ~/www/kiosk_insurance/
+
+            # Git o'zgarishlarini olish
+            git stash || { echo "Git stash failed"; exit 1; }
+            git pull origin main || { echo "Git pull failed"; exit 1; }
+
+            # Kerakli kutubxonalarni o'rnatish
             pnpm install
-            pnpm build  # Loyiha build qilish
-            npx prisma migrate dev --name migrated  # Prisma migratsiya
-            npx prisma generate  # Prisma fayllarini generatsiya qilish
-            pm2 restart 0
+
+            # Loyihani build qilish
+            pnpm build
+
+            # Prisma migratsiyalarini bajarish
+            npx prisma migrate dev --name migrated || { echo "Prisma migrate failed"; exit 1; }
+
+            # Prisma client generatsiyasi
+            npx prisma generate || { echo "Prisma generate failed"; exit 1; }
+
+            # PM2 bilan ilovani qayta ishga tushirish
+            pm2 restart 0 || { echo "PM2 restart failed"; exit 1; }
           EOF
 
       # Step 3: Notify Telegram on success
@@ -46,4 +59,4 @@ jobs:
           COMMIT_AUTHOR=$(git log -1 --pretty=format:"%an")
           curl -s -X POST https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage \
           -d chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
-          -d text="CD Failed.\\nCommit: $COMMIT_MESSAGE\\nAuthor: $COMMIT_AUTHOR"
+          -d text="CD Failed.%0ACommit: $COMMIT_MESSAGE%0AAuthor: $COMMIT_AUTHOR"
