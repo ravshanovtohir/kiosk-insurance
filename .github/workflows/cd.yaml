@@ -15,15 +15,10 @@ jobs:
         uses: actions/checkout@v2
 
       # Step 2: Setup SSH and run necessary commands
-      - name: Setup SSH and deploy
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.HOST }}
-          username: ${{ secrets.USERNAME }}
-          key: ${{ secrets.SSH_KEY }}
-          port: 22
-          script: |
-            cd ~/kiosk_insurance/ 
+      - name: Setup with username/password and deploy
+        run: |
+          sshpass -p "${{ secrets.PASSWORD }}" ssh -o StrictHostKeyChecking=no ${{ secrets.USERNAME }}@${{ secrets.HOST }} << EOF
+            cd ~/kiosk_insurance/
             git stash || { echo "git stash failed"; exit 1; }
             git pull origin main || { echo "git pull failed"; exit 1; }
             pnpm install
@@ -31,6 +26,7 @@ jobs:
             npx prisma migrate dev --name migrated  # Prisma migratsiya
             npx prisma generate  # Prisma fayllarini generatsiya qilish
             pm2 restart 0
+          EOF
 
       # Step 3: Notify Telegram on success
       - name: Notify Telegram on success
