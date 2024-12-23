@@ -1,0 +1,241 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id        Int       @id @default(autoincrement())
+  name      String
+  login     String
+  password  String
+  code      String
+  role      Int
+  status    Int       @default(1)
+  cashCount Int       @default(0) @map("cash_count")
+  fcmToken  String?   @default("") @map("fcm_token")
+  latitude  Decimal   @default(0.0) @db.Decimal(8, 6)
+  longitude Decimal   @default(0.0) @db.Decimal(9, 6)
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime? @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  structureId Int? @map("structure_id")
+  incasatorId Int? @map("incasator_id")
+
+  structure          Structure?           @relation(fields: [structureId], references: [id])
+  insurances         Insurance[]
+  userBalance        UserBalance?
+  Transaction        Transaction[]
+  UserBalanceHistory UserBalanceHistory[]
+  Notify             Notify[]
+
+  @@unique([code, login])
+  @@index([code, status, cashCount, latitude, longitude, structureId, incasatorId, createdAt])
+  @@map("users")
+}
+
+model Insurance {
+  id          Int       @id @default(autoincrement())
+  anketaId    String?
+  amount      BigInt?
+  status      Int       @default(0)
+  createResId Int?      @map("create_res_id")
+  polisId     Int?      @map("polis_id")
+  orderId     String?   @map("order_id")
+  vendorId    Int?      @map("vendor_id")
+  request     Json?
+  response    Json?
+  data        Json?
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime? @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  userId    Int  @map("user_id")
+  companyId Int? @map("company_id")
+  serviceId Int? @map("service_id")
+
+  user        User?         @relation(fields: [userId], references: [id])
+  Transaction Transaction[]
+
+  @@unique([userId, id])
+  @@index([anketaId, status, polisId, vendorId, orderId, createdAt])
+  @@map("insurances")
+}
+
+model UserBalance {
+  id        Int       @id @default(autoincrement())
+  balance   BigInt?
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime? @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  userId Int @map("user_id")
+  lastId Int @default(0) @map("last_id")
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@unique([userId])
+  @@index([balance, userId, createdAt])
+  @@map("user_balances")
+}
+
+model Structure {
+  id        Int       @id @default(autoincrement())
+  name      String?
+  status    Int       @default(1)
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime? @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  regionId Int    @map("region_id")
+  region   Region @relation(fields: [regionId], references: [id])
+  user     User[]
+
+  @@index([name, status, createdAt])
+  @@map("structures")
+}
+
+model Region {
+  id         Int         @id @default(autoincrement())
+  name       String
+  status     Int         @default(1)
+  createdAt  DateTime    @default(now()) @map("created_at")
+  updatedAt  DateTime?   @map("updated_at")
+  deletedAt  DateTime?   @map("deleted_at")
+  structures Structure[]
+  Bank       Bank[]
+
+  @@map("regions")
+}
+
+model Bank {
+  id         Int       @id @default(autoincrement())
+  name       String
+  percentage Decimal   @default(0.0) @db.Decimal(7, 2)
+  regionId   Int       @map("region_id")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime? @map("updated_at")
+  deletedAt  DateTime? @map("deleted_at")
+
+  region Region? @relation(fields: [regionId], references: [id])
+
+  @@map("banks")
+}
+
+model Deposit {
+  id          Int     @id @default(autoincrement())
+  amount      BigInt? @default(0)
+  status      Int     @default(1)
+  comment     String?
+  checkPhoto  String? @map("check_photo")
+  type        Int     @default(0)
+  source      Int     @default(0)
+  cashCount   Int     @default(0) @map("cash_count")
+  operatorId  Int     @default(0) @map("operator_id")
+  incasatorId Int     @default(0) @map("incasator_id")
+  confirmedId Int     @default(0) @map("confirned_id")
+  bankId      Int     @default(0) @map("bank_id")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime? @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("deposits")
+}
+
+model Transaction {
+  id                   Int       @id @default(autoincrement())
+  userId               Int?      @map("user_id")
+  insuranceId          Int?      @map("insurance_id")
+  vendorId             Int?      @map("vendor_id")
+  anketaId             String?   @map("anketa_id")
+  account              String?
+  amount               BigInt?   @default(0)
+  structureId          Int?      @map("structure_id")
+  regionId             Int?      @map("region_id")
+  request              Json?
+  response             Json?
+  payerPhone           String?
+  merchantId           Int?
+  terminalId           Int?
+  partnerTransactionId Int?      @map("partner_transaction_id")
+  bankTransactionId    Int?      @map("bank_transaction_id")
+  status               Int?      @default(0)
+  smsNotify            Int?      @default(0)
+  paymentType          Int?      @default(0)
+  currency             String?
+  paymentId            Int?      @default(0)
+  partnerId            Int?      @default(0)
+  chequeDetails        String?
+  cardNumber           String?
+  cardExpire           String?
+  retry                Int?      @default(0)
+  createdAt            DateTime? @default(now())
+  updatedAt            DateTime? @updatedAt
+  deletedAt            DateTime? @map("deleted_at")
+
+  user      User?      @relation(fields: [userId], references: [id])
+  insurance Insurance? @relation(fields: [insuranceId], references: [id])
+
+  @@index([userId, vendorId, partnerTransactionId, account, status, paymentId, partnerId, createdAt])
+  @@map("transactions")
+}
+
+model UserBalanceHistory {
+  id     Int     @id @default(autoincrement())
+  userId Int
+  amount BigInt? @default(0)
+  type   Int     @default(0)
+
+  createdAt DateTime? @default(now())
+  updatedAt DateTime? @updatedAt
+  deletedAt DateTime? @map("deleted_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("user_balance_history")
+}
+
+model Partner {
+  id                      Int    @id @default(autoincrement())
+  name                    String
+  partnerId               Int    @map("partner_id")
+  image                   String
+  status                  Int    @default(1)
+  unLimitedAmountTashkent Int    @default(0) @map("unlimited_amount_tashkent")
+  limitedAmountTashkent   Int    @default(0) @map("limited_amount_tashkent")
+  unLimitedAmountInRegion Int    @default(0) @map("unlimited_amount_in_region")
+  limitedAmountInRegion   Int    @default(0) @map("limited_amount_in_region")
+
+  createdAt DateTime? @default(now())
+  updatedAt DateTime? @updatedAt
+  deletedAt DateTime? @map("deleted_at")
+}
+
+model Notify {
+  id        Int       @id @default(autoincrement())
+  title     String
+  content   String
+  type      Int
+  userId    Int
+  createdAt DateTime? @default(now())
+  updatedAt DateTime? @updatedAt
+  deletedAt DateTime? @map("deleted_at")
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Vendor {
+  id           Int       @id @default(autoincrement())
+  title        String
+  vendorId     Int       @map("vendor_id")
+  type         Int
+  numberPrefix String[]  @map("start_number")
+  createdAt    DateTime? @default(now())
+  updatedAt    DateTime? @updatedAt
+  deletedAt    DateTime? @map("deleted_at")
+}

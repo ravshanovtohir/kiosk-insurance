@@ -1,0 +1,53 @@
+name: CD
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout code
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      # Step 2: Setup SSH and run necessary commands
+      - name: Setup SSH and deploy
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          port: 22
+          script: |
+            cd ~/kiosk_insurance/ 
+            git stash || { echo "git stash failed"; exit 1; }
+            git pull origin main || { echo "git pull failed"; exit 1; }
+            pnpm install
+            pnpm build  # Loyiha build qilish
+            npx prisma migrate dev --name migrated  # Prisma migratsiya
+            npx prisma generate  # Prisma fayllarini generatsiya qilish
+            pm2 restart 0
+
+      # Step 3: Notify Telegram on success
+      - name: Notify Telegram on success
+        if: success()
+        run: |
+          COMMIT_MESSAGE=$(git log -1 --pretty=format:"%s")
+          COMMIT_AUTHOR=$(git log -1 --pretty=format:"%an")
+          curl -s -X POST https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage \
+          -d chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
+          -d text="CD Successfully.%0ACommit: $COMMIT_MESSAGE%0AAuthor: $COMMIT_AUTHOR"
+
+      # Step 4: Notify Telegram on failure
+      - name: Notify Telegram on failure
+        if: failure()
+        run: |
+          COMMIT_MESSAGE=$(git log -1 --pretty=format:"%s")
+          COMMIT_AUTHOR=$(git log -1 --pretty=format:"%an")
+          curl -s -X POST https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage \
+          -d chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
+          -d text="CD Failed.\\nCommit: $COMMIT_MESSAGE\\nAuthor: $COMMIT_AUTHOR"
